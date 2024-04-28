@@ -1,0 +1,43 @@
+[tool.poetry]
+name = "parser-service"
+version = "0.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+
+[tool.poetry.scripts]
+start-server = "uvicorn parser_service.controller:app --reload"  
+
+[tool.poetry.dependencies]
+python = "^3.12"
+annotated-types = "0.6.0"
+anyio = "4.3.0"
+beautifulsoup4 = "4.12.3"
+bs4 = "0.0.2"
+certifi = "2024.2.2"
+charset-normalizer = "3.3.2"
+click = "8.1.7"
+colorama = "0.4.6"
+fastapi = {extras = ["uvicorn"], version = "^0.110.2"}
+greenlet = "3.0.3"
+h11 = "0.14.0"
+idna = "3.7"
+lxml = "5.2.1"
+psycopg2-binary = "2.9.9"
+pydantic = "2.7.1"
+pydantic-core = "2.18.2"
+requests = "2.31.0"
+sniffio = "1.3.1"
+soupsieve = "2.5"
+sqlalchemy = "2.0.29"
+starlette = "0.37.2"
+tqdm = "4.66.2"
+typing-extensions = "4.11.0"
+urllib3 = "2.2.1"
+uvicorn = "0.29.0"
+python-dotenv = "^1.0.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
