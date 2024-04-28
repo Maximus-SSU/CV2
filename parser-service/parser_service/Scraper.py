@@ -4,6 +4,7 @@ import time
 from tqdm import tqdm
 import urllib3
 from bs4 import BeautifulSoup
+import logging
 
 # Из других файлов
 from parser_service.db_links_init import read_links
@@ -20,6 +21,12 @@ MAIN_LINK_DOMEN="https://саратов.хищник.рф"
 SAVE_DIRECTORY = "../Data/ScrappedData/Images" 
 CHECKER_PATH="../Data/check.txt"
 
+# Настройка логгирования
+logging.basicConfig(
+    filename='../Data/scrapper.log',  # Имя файла для логов
+    level=logging.INFO,  # Уровень логгирования
+    format='%(asctime)s - %(levelname)s - %(message)s'  # Формат записей
+)
 ##################################################################################################################
 ##################################################################################################################
 ##################################################################################################################
@@ -50,94 +57,102 @@ def transliterate(text):
 #############################################################################################################
 
 # #получаем готовый Url необходимой страницы для BS4, параметр verify можно отключить, в зависимости от сайта
-def getNewUrl(newUrl):
-    r=requests.get(newUrl,verify=False)
-    return r.text
+def get_new_url(url):
+    try:
+        r = requests.get(url, verify=False)
+        if r.status_code == 200:
+            return r.text
+        else:
+            logging.error(f"Ошибка запроса: {url} - Статус: {r.status_code}")
+            return None
+    except Exception as e:
+        logging.error(f"Ошибка запроса к {url}: {e}")
+        return None
 
 ################################################################################################################
 # Считываем из БД все необходимые категории
-def openCategoriesDocument():
-    category_links = []
-    categories = get_links_category()
-    for category in categories:
-        category_links.append([category.name, category.link, category.pagenum])
-    return category_links
+def open_categories_document():
+    try:
+        categories = get_links_category()
+        category_links = [
+            [category.name, category.link, category.pagenum]
+            for category in categories
+        ]
+        return category_links
+    except Exception as e:
+        logging.error(f"Ошибка при открытии категорий: {e}")
+        return []
 
 ################################################################################################################
 # Парсим страничку, вытаскиваем оттуда все, что нас интересует
-def ParsePage(soup, item_group,preparedLinks):
-    soup=soup.find('div', class_="catalog_block")
-    rawLinks=soup.findAll('a') #Список всех картинок (ммм, суп, как вкусно)
+def parse_page(soup, item_group, prepared_links):
+    catalog_block = soup.find("div", class_="catalog_block")
+    if not catalog_block:
+        logging.warning(f"Блок каталога не найден для {item_group}")
+        return prepared_links
 
-    for rawLink in rawLinks:
-        rawLink_link= rawLink.get('href') 
-        picture_link= rawLink.find('img')
-        if picture_link is not None:
-            # debug MODE:
-            #####################################################################
-            # count+=1
-            # print("\n________________________________________________________")
-            # print("\n********************************************************")
-            # print(count)
-            # print("\n********************************************************")
-            # print(rawLink)
-            # print("\n********************************************************")
-            # print(picture_link)
-            # print("\n********************************************************")
-             #####################################################################
-            pictureLink_title= picture_link.get('title')
-            pictureLink_upload_raw=picture_link.get('src')
-            pictureLink_upload=MAIN_LINK_DOMEN+pictureLink_upload_raw
-            preparedlink=MAIN_LINK_DOMEN+rawLink_link
-            preparedLinks.append([item_group,transliterate(pictureLink_title),preparedlink,pictureLink_upload])
-        
-    return preparedLinks
+    raw_links = catalog_block.findAll("a")
+    for raw_link in raw_links:
+        raw_link_href = raw_link.get("href")
+        picture_tag = raw_link.find("img")
+        if picture_tag is not None:
+            title = transliterate(picture_tag.get("title", ""))
+            prepared_link = MAIN_LINK_DOMEN + raw_link_href
+            upload_link = MAIN_LINK_DOMEN + picture_tag.get("src")
+            prepared_links.append([item_group, title, prepared_link, upload_link])
+    return prepared_links
 
 ################################################################################################################
 #Парсим все (касательно ссылок)
-def Parse(preparedLinks,item_group, startUrl,max_pages_in_group):
-    if max_pages_in_group>0:
-        for page_count in range (1,max_pages_in_group+1):
-            url=startUrl+str(page_count)
-            # print("\nTRY SCRAPPING : "+ url+"\n")
-            Soup=BeautifulSoup(getNewUrl(url),'lxml')
-            preparedLinks=ParsePage(Soup,item_group,preparedLinks)
-            page_count+=1
-        return preparedLinks     
-    else:
-        url=startUrl
-        # print("\nTRY SCRAPPING : "+ url+"\n")
-        Soup=BeautifulSoup(getNewUrl(url),'lxml')
-        preparedLinks=ParsePage(Soup,item_group,preparedLinks)
-        return preparedLinks 
+def parse(prepared_links, item_group, start_url, max_pages):
+    try:
+        if max_pages > 0:
+            for page_num in tqdm(range(1, max_pages + 1), desc=f"Парсинг {item_group}"):
+                url = start_url + str(page_num)
+                soup = BeautifulSoup(get_new_url(url), "lxml")
+                if soup:
+                    parse_page(soup, item_group, prepared_links)
+        else:
+            soup = BeautifulSoup(get_new_url(start_url), "lxml")
+            if soup:
+                parse_page(soup, item_group, prepared_links)
+        return prepared_links
+    except Exception as e:
+        logging.error(f"Ошибка при парсинге {item_group}: {e}")
+        return prepared_links
+
       
 
 ################################################################################################################
 #Ф-я создания ссылки для загрузки страницы 
-def CreateLinkDocument(img_links):
-    for link in img_links:
-        add_link_image(link)
+def create_link_document(img_links):
+    try:
+        for link in img_links:
+            add_link_image(link)
+    except Exception as e:
+        logging.error(f"Ошибка при создании документов ссылок: {e}")
 
 
 ################################################################################################################
-def ParseLinks():
-    delete_all_link_images()
-    # ClearImgLinksDocument(img_links_path)
-    preparedLinks=[]
-    start_DATA=openCategoriesDocument()
-    k=len(start_DATA)
-    for i in tqdm(range(0,k)):
-    # for i in range(0,k):
-       preparedLinks= Parse(preparedLinks,start_DATA[i][0],start_DATA[i][1],int(start_DATA[i][2]))
-    #################################################################
-    # debug mode
-    # Parse(start_DATA[0][0],start_DATA[0][1],start_DATA[0][2])
-    ###############################################################
-    CreateLinkDocument(preparedLinks)
-    parsed_count= len(preparedLinks)
-    print(f"\n * SUCCESSFULLY SCRAPPED [{parsed_count}] LINKS\n")
-    return parsed_count
 
+def  ParseLinks():
+    delete_all_link_images()  # Очистка таблицы перед скраппингом
+    prepared_links = []
+    categories = open_categories_document()
+    if not categories:
+        logging.error("Нет категорий для парсинга.")
+        return 0
+    
+    for category in tqdm(categories, desc="Парсинг категорий"):
+        group_name = category[0]
+        start_url = category[1]
+        max_pages = int(category[2])
+        prepared_links = parse(prepared_links, group_name, start_url, max_pages)
+    
+    create_link_document(prepared_links)
+    parsed_count = len(prepared_links)
+    logging.info(f"Успешно спарсено {parsed_count} ссылок.")
+    return parsed_count
 
 ##################################################################################################################
 ##################################################################################################################
@@ -150,19 +165,22 @@ def ParseLinks():
 # #функции для чтения и записи файла, в котором хранится позиция последнего спарсенного файла.
 def check_write(value):
     try:
-        with open(CHECKER_PATH, 'w') as file:
+        with open(CHECKER_PATH, "w") as file:
             file.write(str(value))
+        logging.info(f"Чекер обновлен значением: {value}")
     except Exception as e:
-        print("\nCheck WRITE -", e)
+        logging.error(f"Ошибка записи в чекер: {e}")
 #####################################################################################
 # Сосчитать чекер
-def check_read(value):
+def check_read():
     try:
-        with open(CHECKER_PATH, 'r') as file:
+        with open(CHECKER_PATH, "r") as file:
             value = int(file.read())
         return value
     except Exception as e:
-        print("\n*Check READ - :", e)
+        logging.error(f"Ошибка чтения из чекера: {e}")
+        return 0
+
 #####################################################################################
 # Открыть чекер 
 def check_open():
@@ -176,42 +194,29 @@ def check_open():
 # Сброс файла, на котором лежит значение уже спарсенных картинок. (чекер)
 def check_reset():
     try:
-        # Открываем файл в режиме 'w' для перезаписи содержимого
-        with open(CHECKER_PATH, 'w') as file:
-            file.write("0")  # Записываем "0" в файл
-        print("Файл check.txt успешно перезаписан.")
-
+        with open(CHECKER_PATH, "w") as file:
+            file.write("0")
+        logging.info("Чекер сброшен.")
     except Exception as e:
-        # Обработка ошибок при попытке перезаписать файл
-        print("Ошибка при перезаписи файла check.txt:", e)
-
+        logging.error(f"Ошибка при сбросе чекера: {e}")
 ################################################################################################
 #Основные функции
 #Загрузка изображения
 def download_image(image_url, new_filename):
+    try:
+        response = requests.get(image_url, verify=False)
+        if response.status_code == 200:
+            if not os.path.exists(SAVE_DIRECTORY):
+                os.makedirs(SAVE_DIRECTORY)
 
-    # Отправляем GET-запрос для загрузки страницы
-    response = requests.get(image_url,verify=False)
-
-    # Проверяем успешность запроса
-    if response.status_code == 200:
-        
-        # Создаем папку, если она не существует
-        if not os.path.exists(SAVE_DIRECTORY):
-            os.makedirs(SAVE_DIRECTORY)
-    
-        img_filename = new_filename
-        # Путь для сохранения изображения
-        save_path = os.path.join(SAVE_DIRECTORY, img_filename)
-
-        # Сохраняем изображение на диск
-        with open(save_path, 'wb') as f:
-            f.write(response.content)
-        # print("Изображение успешно сохранено:", save_path)
-
-    else:
-        print("Ошибка при загрузке страницы:", response.status_code)
-
+            save_path = os.path.join(SAVE_DIRECTORY, new_filename)
+            with open(save_path, "wb") as f:
+                f.write(response.content)
+            logging.info(f"Изображение сохранено: {save_path}")
+        else:
+            logging.error(f"Ошибка загрузки изображения {image_url} - Статус: {response.status_code}")
+    except Exception as e:
+        logging.error(f"Ошибка при загрузке изображения {image_url}: {e}")
 
 #####################################################################################
 # Функция для создание имени изображения.
@@ -231,42 +236,41 @@ def RepairArticleName(string):
 
 ######################################################################################
 # Функция, которая отслеживает процесс скраппинга и ведет счет загруженных картинок (закидывая их в check.txt)
-def Data_splitter(data_input, start_position):
-    check_counter = 1
-    print("\n*START POSITION = ", start_position)
-    for data in tqdm(data_input[start_position:]):
-        name=create_image_name(data)
-        download_image(data.dwnloadlink,name)
+def data_splitter(data_input, start_position):
+    check_counter = 0
+    for i, data in enumerate(tqdm(data_input[start_position:], desc="Загрузка изображений", unit="изображений")):
+        image_name = create_image_name(data)
+        download_image(data.dwnloadlink, image_name)
         check_counter += 1
-        check_write(start_position+check_counter)
-    
-    print("\n\n***EXECUTED SUCCESSFULLY!***\n SCRAPPED = ", check_counter,"PAGES")
+        check_write(start_position + check_counter)
+    logging.info(f"Успешно загружено {check_counter} изображений с позиции {start_position}.")
     return check_counter
 
 
 #####################################################################################
 #Основная функция:  в ней происходит именно скраппинг страниц.
 def startScrapper():
-    readyLinks=get_links_images()
-    pages=len(readyLinks)
-    scrapper_data=readyLinks[:pages] #Подгрузка подготовленных ссылок 
-    scrapper_pos=0 #Текущая позиция скраппера
+    ready_links = get_links_images()
+    pages = len(ready_links)
+    scrapper_pos = check_read()  # Узнаем, откуда продолжать
 
-    scrapper_pos=check_read(scrapper_pos) # Проверяем, если скарппинг уже происходил, и необходимо начать с N позиции
-    start_time = time.time() #Замеряем время
-    scrapper_pos=scrapper_pos+Data_splitter(scrapper_data, scrapper_pos)# Парсим
+    start_time = time.time()  # Замеряем время
+    data_splitter(ready_links, scrapper_pos)  # Парсим
     end_time = time.time() - start_time
-    print("\n\nEXECUTION TIME: ",end_time) 
-    scrapper_pos=check_write(scrapper_pos) #Записываем в лог текущую позицию 
+
+    logging.info(f"Время выполнения: {end_time} секунд.")
+    check_write(scrapper_pos + data_splitter(ready_links, scrapper_pos))  # Обновляем чекер
 
 
 
-def ClearStart():
+
+def clear_start():
     clear_all_tables()
     check_reset()
-    read_links()
-    ParseLinks()
-    startScrapper()
+    read_links()  # Читаем ссылки для скраппинга
+    ParseLinks  # Парсим ссылки
+    startScrapper()  # Начинаем скраппинг изображений
+    logging.info("Скраппинг завершен.")
 
 
 ######################################################################################
