@@ -51,4 +51,4 @@ async def get_openapi_endpoint():
     return app.openapi()
 
 def start():
-    uvicorn.run("hello-service.main:app", reload=True)
+    uvicorn.run("hello_service.main:app", reload=True)

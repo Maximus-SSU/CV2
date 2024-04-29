@@ -1,5 +1,5 @@
 # Используем образ Python для сборки
-FROM python:3.10-slim
+FROM python:3.12
 
 
 ARG SERVICE_DIR=hello-service
