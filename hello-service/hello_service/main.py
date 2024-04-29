@@ -49,3 +49,6 @@ async def custom_swagger_ui_html():
 @app.get("/openapi.json", include_in_schema=False)
 async def get_openapi_endpoint():
     return app.openapi()
+
+def start():
+    uvicorn.run("hello-service.main:app", reload=True)

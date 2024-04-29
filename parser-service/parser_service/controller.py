@@ -75,3 +75,5 @@ async def custom_swagger_ui_html():
 async def get_openapi_endpoint():
     return app.openapi()
 
+def start():
+    uvicorn.run("parser_service.controller:app", reload=True)
