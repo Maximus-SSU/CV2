@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+# Сервис PostgreSQL
+  postgres:
+    image: postgres:15  # Используйте нужную версию PostgreSQL
+    env_file: 
+      - ./.env  # Подключение файла с переменными окружения
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data  # Сохранение данных PostgreSQL
+      - ./initdb:/docker-entrypoint-initdb.d/  # Скрипты, запускаемые при инициализации
+    ports:
+      - "5432:5432"  # Порт на хосте и в контейнере
+
+  # Сервис Parser-server
+  parser-server:
+     build:
+      context: ./
+      dockerfile: ./parser-service/Dockerfile
+    command: poetry run app -V
+    depends_on:
+      - postgres  # Этот сервис зависит от PostgreSQL
+    ports:
+      - "8000:8000"  # Порт, по которому доступен FastAPI
+    environment:
+       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}  # Использование переменных из .env
+
+  # Сервис Hello-server
+  hello-server:
+    build:
+      context: ./
+      dockerfile: ./hello-scrapper/Dockerfile
+    command: poetry run app -V
+    ports:
+      - "8001:8001"  # Порт, по которому доступен FastAPI
+
+  

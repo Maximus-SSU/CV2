@@ -2,11 +2,11 @@
 name = "parser-service"
 version = "0.1.0"
 description = ""
-authors = ["Your Name <you@example.com>"]
+authors = ["Maximus <you@example.com>"]
 readme = "README.md"
 
 [tool.poetry.scripts]
-start-server = "uvicorn parser_service.controller:app --reload"  
+app = "parser_service.controller:start"  
 
 [tool.poetry.dependencies]
 python = "^3.12"

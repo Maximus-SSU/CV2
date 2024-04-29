@@ -1,0 +1,21 @@
+# Используем образ Python для сборки
+FROM python:3.10-slim
+
+
+ARG SERVICE_DIR=hello-service
+
+# Установим переменные окружения для Python и убедимся, что Python выводит все
+# в stdout и stderr.
+ENV PYTHONUNBUFFERED 1
+ENV PYTHONDONTWRITEBYTECODE 1
+
+
+# Устанавливаем рабочую директорию внутри контейнера
+WORKDIR /app
+
+# Устанавливаем и запускаем poetry
+RUN pip install poetry
+
+RUN poetry config virtualenvs.create false && \
+    poetry install --no-interaction --no-ansi
+
