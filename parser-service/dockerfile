@@ -1,20 +1,24 @@
-FROM python:3.12
+FROM python:3.12 as requirements-stage
 
-ARG SERVICE_DIR=parser-service
-
-ENV PYTHONUNBUFFERED 1
-ENV PYTHONDONTWRITEBYTECODE 1
-
-
-WORKDIR /app
-
-
-COPY $SERVICE_DIR/poetry.lock $SERVICE_DIR/pyproject.toml /app/
+WORKDIR /tmp
 
 RUN pip install poetry
 
+COPY ./pyproject.toml ./poetry.lock* .
 
-RUN poetry lock --no-update
+RUN poetry export -f requirements.txt --output requirements.txt --without-hashes
 
-RUN poetry config virtualenvs.create false && \
-    poetry install
+FROM python:3.12 as application-stage
+
+WORKDIR /parser-service
+
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+
+COPY --from=requirements-stage /tmp/requirements.txt requirements.txt
+
+RUN pip install --no-cache-dir --upgrade -r requirements.txt
+
+COPY parser_service/ ./parser_service/
+
+CMD ["uvicorn", "parser_service.controller:app", "--host", "0.0.0.0", "--port", "8000"]
