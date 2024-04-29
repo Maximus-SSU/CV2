@@ -2,7 +2,7 @@
 name = "parser-service"
 version = "0.1.0"
 description = ""
-authors = ["Your Name <you@example.com>"]
+authors = ["Maximus <you@example.com>"]
 readme = "README.md"
 
 [tool.poetry.scripts]

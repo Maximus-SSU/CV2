@@ -3,15 +3,12 @@ from fastapi import FastAPI
 import os
 from fastapi.middleware.cors import CORSMiddleware
 #For Swager
+#For Swager
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import RedirectResponse
 #For uvicorn
 import uvicorn
 
-#Мои
-from parser_service.db import get_links_category, clear_all_tables
-from parser_service.Scraper import ParseLinks,startScrapper,ClearStart
-from parser_service.db_links_init import read_links
 
 
 
@@ -30,34 +27,12 @@ app.add_middleware(
 ###########################################################
 #Эндпоинты
 
-#Основная функция - "чистый" старт
+#Основная функция - привет мир
 
-@app.get("/Start")
-def let_it_start():
-    return ClearStart()
-# # Функция для получения списка всех ссылок
-# @app.get("/Links")
-# def links_list():
-#     return get_links_category()
 
-# Функция для получения списка всех ссылок
-@app.get("/Clear")
-def Clear_db():
-    return clear_all_tables()
-
-# @app.get("/ReadLinks")
-# def Read_Links_from_db():
-#     return read_links()
-
-# Функция для получения списка всех ссылок
-@app.get("/Parse/Links")
-def parse_links():
-    Links=ParseLinks()
-    return Links
-
-@app.get("/Parse/Images")
-def parse_images():
-    startScrapper()
+@app.get("/hello")
+async def func():
+    return {"message": "Hello World"}
 
 
 # Обработчик для корневого URL
@@ -74,4 +49,3 @@ async def custom_swagger_ui_html():
 @app.get("/openapi.json", include_in_schema=False)
 async def get_openapi_endpoint():
     return app.openapi()
-
