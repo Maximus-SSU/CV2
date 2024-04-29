@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-# Сервис PostgreSQL
   postgres:
     image: postgres:15  # Используйте нужную версию PostgreSQL
     env_file: 
