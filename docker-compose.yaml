@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   postgres:
-    image: postgres:15  # Используйте нужную версию PostgreSQL
+    image: postgres:latest  # Используйте нужную версию PostgreSQL
     container_name: my_postgres
     env_file: 
       - ./.env  # Подключение файла с переменными окружения
@@ -14,24 +14,15 @@ services:
 
   # Сервис Parser-server
   parser-server:
-    build:
-      context: ./
-      dockerfile: ./parser-service/Dockerfile
-    command: poetry run app -V
+    container_name: parser-server
+    build: ./parser-service/
     depends_on:
       - postgres  # Этот сервис зависит от PostgreSQL
+    volumes:
+      - ./parser-service/Data:/parser-service/Data
+    restart: unless-stopped
     ports:
       - "8000:8000"  # Порт, по которому доступен FastAPI
-    environment:
-       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}  # Использование переменных из .env
-
-  # Сервис hello
-  parser-service:
-    build:
-      context: ./
-      dockerfile: ./hello-service/Dockerfile
-    command: poetry run app -V
-    ports:
-      - "8001:8001"  # Порт, по которому доступен FastAPI
-
+    env_file:
+       - ./parser-service/.env
   

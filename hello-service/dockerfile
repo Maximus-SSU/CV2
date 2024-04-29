@@ -1,21 +1,24 @@
-# Используем образ Python для сборки
-FROM python:3.12
+FROM python:3.12 as requirements-stage
 
+WORKDIR /tmp
 
-ARG SERVICE_DIR=hello-service
-
-# Установим переменные окружения для Python и убедимся, что Python выводит все
-# в stdout и stderr.
-ENV PYTHONUNBUFFERED 1
-ENV PYTHONDONTWRITEBYTECODE 1
-
-
-# Устанавливаем рабочую директорию внутри контейнера
-WORKDIR /app
-
-# Устанавливаем и запускаем poetry
 RUN pip install poetry
 
-RUN poetry config virtualenvs.create false && \
-    poetry install --no-interaction --no-ansi
+COPY ./pyproject.toml ./poetry.lock* .
 
+RUN poetry export -f requirements.txt --output requirements.txt --without-hashes
+
+FROM python:3.12 as application-stage
+
+WORKDIR /project
+
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+
+COPY --from=requirements-stage /tmp/requirements.txt requirements.txt
+
+RUN pip install --no-cache-dir --upgrade -r requirements.txt
+
+COPY hello_service/ ./app/
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
